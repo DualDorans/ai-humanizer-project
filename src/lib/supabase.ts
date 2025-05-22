@@ -413,6 +413,7 @@ export async function getUserCredits(userId: string): Promise<number> {
 
     // If user doesn't exist, create them with default credits
     if (!data) {
+      console.log('User not found, creating with default credits');
       await supabase!
         .from('users')
         .upsert([{ id: userId, credits: 1000 }], { onConflict: 'id' });
