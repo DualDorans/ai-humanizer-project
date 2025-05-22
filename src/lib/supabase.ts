@@ -14,6 +14,36 @@ export function isSupabaseInitialized(): boolean {
   return supabase !== null;
 }
 
+// Function to get user projects
+export async function getUserProjects(userId: string) {
+  if (!isSupabaseInitialized()) {
+    return {
+      success: false,
+      error: 'Supabase client is not initialized'
+    };
+  }
+
+  try {
+    const { data, error } = await supabase!
+      .from('projects')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
 // Function to humanize text using backend FastAPI
 export async function humanizeText(text: string): Promise<{
   success: boolean;
