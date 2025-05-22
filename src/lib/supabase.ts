@@ -20,16 +20,44 @@ export async function humanizeText(text: string): Promise<{
   data?: string;
   error?: string;
 }> {
-  const apiKey = import.meta.env.VITE_UNDETECTABLE_API_KEY;
-
-  if (!apiKey) {
+  if (!isSupabaseInitialized()) {
     return {
       success: false,
-      error: 'Undetectable AI API key not configured'
+      error: 'Supabase client is not initialized'
     };
   }
 
   try {
+    // Get user credits first
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('credits')
+      .eq('id', (await supabase.auth.getUser()).data.user?.id)
+      .single();
+
+    if (userError) {
+      throw new Error('Failed to check user credits');
+    }
+
+    const credits = userData?.credits ?? 0;
+    const wordCount = text.trim().split(/\s+/).length;
+
+    if (credits < wordCount) {
+      return {
+        success: false,
+        error: `Insufficient credits. You need ${wordCount} credits but have ${credits} available.`
+      };
+    }
+
+    const apiKey = import.meta.env.VITE_UNDETECTABLE_API_KEY;
+
+    if (!apiKey) {
+      return {
+        success: false,
+        error: 'Undetectable AI API key not configured'
+      };
+    }
+
     // Generate a unique id for the document
     const id = uuidv4();
     // 1. Submit the document with the correct structure
@@ -86,6 +114,16 @@ export async function humanizeText(text: string): Promise<{
     }
 
     if (output) {
+      // Deduct credits from user
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ credits: credits - wordCount })
+        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+
+      if (updateError) {
+        console.error('Failed to update credits:', updateError);
+      }
+
       return { success: true, data: output };
     } else {
       return { success: false, error: 'Timed out waiting for humanized text.' };
@@ -190,34 +228,6 @@ export async function updateUserCredits(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',
-    };
-  }
-}
-
-// Function to get user projects
-export async function getUserProjects(userId: string) {
-  if (!isSupabaseInitialized()) {
-    return {
-      success: false,
-      error: 'Supabase client is not initialized',
-      data: []
-    };
-  }
-
-  try {
-    const { data, error } = await supabase!
-      .from('projects')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return { success: true, data };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred',
-      data: [],
     };
   }
 }

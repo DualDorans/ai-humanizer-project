@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import { CreditCard, Shield, ArrowLeft } from 'lucide-react';
+import { updateUserCredits } from '../lib/supabase';
 
 const plans = {
   basic: {
@@ -82,6 +83,11 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!user) {
+      toast.error('Please log in to purchase credits');
+      return;
+    }
+    
     // Basic validation
     if (!cardNumber || !cardName || !expiryDate || !cvc) {
       toast.error('Please fill in all payment details');
@@ -109,10 +115,18 @@ export default function CheckoutPage() {
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 1500));
       
+      // Update user credits
+      const result = await updateUserCredits(user.id, plans[planId as keyof typeof plans].credits);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update credits');
+      }
+      
       toast.success(`Successfully purchased ${plans[planId as keyof typeof plans].name} plan!`);
       navigate('/dashboard');
     } catch (error) {
       toast.error('Payment failed. Please try again.');
+      console.error('Payment error:', error);
     } finally {
       setIsLoading(false);
     }
