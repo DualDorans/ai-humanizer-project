@@ -153,10 +153,10 @@ export async function getUserCredits(userId: string): Promise<number> {
       .from('users')
       .select('credits')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
-    return data?.credits || 0;
+    return data?.credits ?? 0;
   } catch (error) {
     console.error('Error getting user credits:', error);
     return 0;
