@@ -175,34 +175,26 @@ class CreditManager {
 
   private async getUserCredits(userId: string): Promise<number> {
     try {
+      // First, ensure the user exists by creating if necessary
+      await this.supabase
+        .from('users')
+        .upsert([{ id: userId, credits: 1000 }], { 
+          onConflict: 'id',
+          ignoreDuplicates: true // Only insert if doesn't exist
+        });
+
+      // Then get the credits
       const { data, error } = await this.supabase
         .from('users')
         .select('credits')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
 
       if (error) throw error;
-
-      // If user doesn't exist, create them with default credits
-      if (!data) {
-        await this.createUserWithDefaultCredits(userId);
-        return 1000; // Default credits
-      }
-
-      return data.credits ?? 1000;
+      return data?.credits ?? 1000;
     } catch (error) {
       console.error('Error getting user credits:', error);
-      return 1000; // Fallback
-    }
-  }
-
-  private async createUserWithDefaultCredits(userId: string): Promise<void> {
-    try {
-      await this.supabase
-        .from('users')
-        .upsert([{ id: userId, credits: 1000 }], { onConflict: 'id' });
-    } catch (error) {
-      console.error('Failed to create user record:', error);
+      return 1000; // Return default credits on error
     }
   }
 
@@ -403,23 +395,22 @@ export async function getUserCredits(userId: string): Promise<number> {
   }
 
   try {
+    // First, ensure the user exists by creating if necessary
+    await supabase!
+      .from('users')
+      .upsert([{ id: userId, credits: 1000 }], { 
+        onConflict: 'id',
+        ignoreDuplicates: true // Only insert if doesn't exist
+      });
+
+    // Then get the credits
     const { data, error } = await supabase!
       .from('users')
       .select('credits')
       .eq('id', userId)
-      .maybeSingle();
+      .single();
 
     if (error) throw error;
-
-    // If user doesn't exist, create them with default credits
-    if (!data) {
-      console.log('User not found, creating with default credits');
-      await supabase!
-        .from('users')
-        .upsert([{ id: userId, credits: 1000 }], { onConflict: 'id' });
-      return 1000;
-    }
-
     return data?.credits ?? 1000;
   } catch (error) {
     console.error('Error getting user credits:', error);
